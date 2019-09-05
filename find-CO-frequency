@@ -1,0 +1,43 @@
+def find_contribution_atom(frequency,atom_num,log_file_path,xyz_file_path):
+    coords = get_mol_coords(xyz_file_path)
+
+    log_file = open(log_file_path)
+    log_file_lines = log_file.readlines()
+    for index,log_file_line in enumerate(log_file_lines):
+        if frequency in log_file_line.split() and log_file_line.startswith('       Frequencies'):
+            frequency_index = index
+            contri_index = log_file_line.split().index(frequency)
+            break
+
+    contributions = []
+    for index,line in enumerate(log_file_lines[frequency_index + 8:frequency_index + 8 + atom_num * 3]):
+        contributions.append(line.split()[contri_index + 1])
+    contributions = np.array(contributions,dtype=np.float)
+    
+    step = 3
+    contributions_splits = [contributions[i:i+step] for i in range(0,len(contributions),step)]
+
+    contributionpercents = []
+    for i in contributions_splits:
+        contributionpercents.append(np.sum(i ** 2) / 1)
+    contributionpercents = contributionpercents * coords[:,0]
+    if (coords[np.argsort(contributionpercents)[-2:],0] == [8.,6.]).all() or \
+    (coords[np.argsort(contributionpercents)[-2:],0] == [6.,8.]).all():
+        return coords[np.argsort(contributionpercents)[-2:],0],\
+    np.argwhere(np.all(coords == [i for i in coords[np.argsort(contributionpercents)[-2:]] if i[0] == 6][0],axis=1)).item()\
+    ,np.argwhere(np.all(coords == [i for i in coords[np.argsort(contributionpercents)[-2:]] if i[0] == 8][0],axis=1)).item()
+    #else:
+    #    continue
+        #return coords[np.argsort(contributionpercents)[-2:],0],None
+
+
+def assure_CO_in_C(coord_C,xyz):
+    cr = (0.73 + 0.66) * 1.15
+    for index,coord in enumerate(xyz):
+
+        if (coord == coord_C).all() == True:
+
+            index_C = index
+        elif coord[0] == 8 and np.linalg.norm(coord_C[1:] - coord[1:]) < cr:
+            index_O = index
+    return (index_O,index_C)
