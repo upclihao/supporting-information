@@ -1,0 +1,78 @@
+import numpy as np
+import os
+
+def get_atom_nu(file_path):
+    f = open(file_path)
+    f_lines = f.readlines()
+    f.close()
+    return int(f_lines[0])
+
+def smb2an(lists):
+    ans = []
+    for string in lists:
+        if string == 'C':
+            an = 6
+        elif string == 'N':
+            an = 7
+        elif string == 'O':
+            an = 8
+        elif string == 'H':
+            an = 1
+        elif string == 'F':
+            an = 9
+        ans.append(an)
+    return ans
+ 
+def get_mol_coords(file_path):
+    f = open(file_path)
+    f_lines = f.readlines()
+    f.close()
+    mol_smb = []
+    mol_xyz = []
+    for i,f_line in enumerate(f_lines):
+        if f_line.startswith('C') or f_line.startswith('H') \
+        or f_line.startswith('N') or f_line.startswith('O') \
+        or f_line.startswith('F'):
+            init = i
+            break
+    nu = get_atom_nu(file_path)
+    for line in f_lines[i:i+nu]:
+        mol_smb.append(line.split()[0])
+        mol_xyz.append(line.split()[1:4])
+    mol_ans = smb2an(mol_smb)
+    mol_xyz = np.array(mol_xyz,dtype = 'float64')
+    mol_coords = np.zeros((nu,4))
+    mol_coords[:,0] = mol_ans
+    mol_coords[:,1:] = mol_xyz
+    return mol_coords
+
+def C_O_in_smiles(xyz_file_path):
+    NUM = get_atom_nu(xyz_file_path)
+    f = open(xyz_file_path)
+    lines = f.readlines()
+    string = lines[NUM + 3].split()[0]
+    f.close()
+    return ('O=' in string) or ('=O' in string)
+
+def count_CO_in_xyz(xyz_file_path):
+    NUM = get_atom_nu(xyz_file_path)
+    f = open(xyz_file_path)
+    lines = f.readlines()
+    string = lines[NUM + 3].split()[0]
+    f.close()
+    return string.count('=O') + string.count('O=')
+    
+def C_O_in_xyz(xyz_file_path):
+    cr = (0.73 + 0.66) * 1.15
+    xyz = get_mol_coords(xyz_file_path)
+    for index_O,coord in enumerate(xyz):
+        if C_O_in_smiles(xyz_file_path):
+            if coord[0] == 8:
+                for index_C in [i for i in list(range(xyz.shape[0])) if i != index_O]:
+                    if np.linalg.norm(xyz[index_O,1:] - xyz[index_C,1:] < cr):
+                        return 1
+                        break
+                break
+        else:
+            return 0
+            break
