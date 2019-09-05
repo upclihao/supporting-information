@@ -45,7 +45,24 @@ def get_mol_coords(file_path):
     mol_coords[:,0] = mol_ans
     mol_coords[:,1:] = mol_xyz
     return mol_coords
-    
+
+def count_OH(mat):
+    if 8 in mat[:,0] and 1 in mat[:,0]:
+        O = np.argwhere(mat[:,0] == 8)
+        H = np.argwhere(mat[:,0] == 1)
+        com = itertools.product(O,H)
+        num = 0
+        cr = (0.31 + 0.66) * 1.15
+        for i in com:
+            if np.linalg.norm(mat[i[0][0],1:] - mat[i[1][0],1:]) < cr:
+                num += 1
+        if num > 0:
+            return 1,num
+        else:
+            return 0,0
+    else:
+        return 0,0
+        
 def O_H_in_xyz(xyz_file_path):
     cr = (0.31 + 0.66) * 1.15
     xyz = get_mol_coords(xyz_file_path)
