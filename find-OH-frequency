@@ -1,0 +1,98 @@
+import numpy as np
+import os
+import json
+
+
+def get_atom_num_fromlog(file_path):
+    file = open(file_path)
+    file_lines = file.readlines()
+    for file_line in file_lines:
+        if file_line.startswith(' NAtoms=   '):
+            num = file_line.split()[1]
+            break
+    file.close()
+    return num
+
+def get_atom_nu(file_path):
+    f = open(file_path)
+    f_lines = f.readlines()
+    f.close()
+    return int(f_lines[0])
+
+def smb2an(lists):
+    ans = []
+    for string in lists:
+        if string == 'C':
+            an = 6
+        elif string == 'N':
+            an = 7
+        elif string == 'O':
+            an = 8
+        elif string == 'H':
+            an = 1
+        elif string == 'F':
+            an = 9
+        ans.append(an)
+    return ans
+
+ 
+def get_mol_coords(file_path):
+    f = open(file_path)
+    f_lines = f.readlines()
+    f.close()
+    mol_smb = []
+    mol_xyz = []
+    for i,f_line in enumerate(f_lines):
+        if f_line.startswith('C') or f_line.startswith('H') \
+        or f_line.startswith('N') or f_line.startswith('O') \
+        or f_line.startswith('F'):
+            init = i
+            break
+    nu = get_atom_nu(file_path)
+    for line in f_lines[i:i+nu]:
+        mol_smb.append(line.split()[0])
+        mol_xyz.append(line.split()[1:4])
+    mol_ans = smb2an(mol_smb)
+    mol_xyz = np.array(mol_xyz,dtype = 'float64')
+    mol_coords = np.zeros((nu,4))
+    mol_coords[:,0] = mol_ans
+    mol_coords[:,1:] = mol_xyz
+    return mol_coords
+
+def find_contribution_atom(frequency,atom_num,log_file_path,xyz_file_path):
+    coords = get_mol_coords(xyz_file_path)
+    #print(coords)
+    log_file = open(log_file_path)
+    log_file_lines = log_file.readlines()
+    for index,log_file_line in enumerate(log_file_lines):
+        if frequency in log_file_line.split() and log_file_line.startswith('       Frequencies'):
+            frequency_index = index
+            contri_index = log_file_line.split().index(frequency)
+            break
+
+    contributions = []
+    for index,line in enumerate(log_file_lines[frequency_index + 8:frequency_index + 8 + atom_num * 3]):
+        contributions.append(line.split()[contri_index + 1])
+    contributions = np.array(contributions,dtype=np.float)
+    
+    step = 3
+    contributions_splits = [contributions[i:i+step] for i in range(0,len(contributions),step)]
+    
+    contributionpercents = []
+    for i in contributions_splits:
+        contributionpercents.append(np.sum(i ** 2) / 1)
+
+    return coords[np.argsort(contributionpercents)[-2:],0],np.sort(contributionpercents)[-2:],coords[np.argsort(contributionpercents)[-1],0],coords[np.argsort(contributionpercents)[-1],1:]
+
+def assure_H_in_OHbond(H_coord,coords):
+    dises = []
+    cr = (0.31 + 0.66) * 1.15
+    for coord in coords:
+        if coord[0] == 8.:
+            dis = np.linalg.norm(coord[1:] - H_coord)
+            dises.append(dis)
+    
+    if True in (np.array(dises) < cr):
+        return True
+    else:
+        return False
